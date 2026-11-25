@@ -1,0 +1,62 @@
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: #03040a; color: #e8f5e0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ============ PORTADA ============ */
+#portada {
+  position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 30%, rgba(30, 60, 25, .55), rgba(3, 4, 10, .92) 70%);
+  backdrop-filter: blur(3px); padding: 18px; overflow: auto;
+}
+#portada.oculta { display: none; }
+.tarjeta {
+  width: min(920px, 100%); padding: 28px 34px 20px; border-radius: 18px;
+  background: rgba(8, 12, 8, .82); border: 2px solid #8be04e;
+  box-shadow: 0 0 40px rgba(139, 224, 78, .25);
+}
+.etiqueta { margin: 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #8aa77a; }
+.tarjeta h1 {
+  margin: 6px 0 10px; font-size: clamp(30px, 5vw, 50px); line-height: 1.05; color: #8be04e;
+  font-weight: bold; text-shadow: 0 0 18px rgba(139, 224, 78, .5);
+}
+.historia { font-size: 16px; line-height: 1.5; color: #cfe6c3; margin: 0 0 14px; }
+.historia b { color: #ffb24d; }
+.columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.columnas h2 { font-size: 15px; color: #8be04e; margin: 10px 0 6px; }
+.columnas ul { margin: 0; padding-left: 0; list-style: none; font-size: 13.5px; line-height: 1.9; color: #dbe9d2; }
+kbd {
+  display: inline-block; padding: 1px 7px; margin-right: 5px; border-radius: 5px;
+  background: #1b2417; border: 1px solid #4d6b3c; border-bottom-width: 3px; color: #e8f5e0; font: bold 12px Arial;
+}
+.botones { display: flex; gap: 14px; justify-content: center; margin: 20px 0 6px; flex-wrap: wrap; }
+.botones button, .botones #VRButton, .botones a {
+  position: static !important; transform: none !important; left: auto !important; bottom: auto !important;
+  width: auto !important; min-width: 210px; padding: 13px 22px !important; border-radius: 12px !important;
+  font: bold 16px Arial !important; cursor: pointer; opacity: 1 !important;
+  border: 2px solid #8be04e !important; background: #142010 !important; color: #e8f5e0 !important;
+}
+.botones button:hover, .botones #VRButton:hover { background: #8be04e !important; color: #0a120a !important; }
+#cargando { text-align: center; font-size: 13px; color: #8aa77a; margin: 4px 0 10px; }
+.tarjeta footer { border-top: 1px solid #2c3a26; padding-top: 10px; font-size: 13px; color: #cfe6c3; text-align: center; }
+.tarjeta footer span { color: #8be04e; font-weight: bold; }
+
+/* ============ HUD ============ */
+#hud { position: fixed; top: 14px; right: 14px; display: flex; gap: 8px; z-index: 10; }
+.badge {
+  padding: 7px 12px; border-radius: 10px; font-size: 15px;
+  background: rgba(6, 8, 15, .6); border: 1px solid rgba(139, 224, 78, .4); backdrop-filter: blur(6px);
+}
+#mira { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: rgba(255, 255, 255, .55); font-size: 22px; z-index: 9; pointer-events: none; }
+#flash { position: fixed; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(200, 0, 0, .65)); opacity: 0; transition: opacity .5s; pointer-events: none; z-index: 11; }
+#mensaje {
+  position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 12; display: none; text-align: center;
+  padding: 22px 36px; border-radius: 16px; background: rgba(8, 12, 8, .85); border: 2px solid #8be04e;
+  font-size: 30px; font-weight: bold; color: #8be04e;
+}
+#mensaje small { display: block; font-size: 15px; color: #cfe6c3; margin-top: 8px; font-weight: normal; }
+
+@media (max-width: 720px) { .columnas { grid-template-columns: 1fr; } }
