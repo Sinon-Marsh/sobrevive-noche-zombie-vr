@@ -26,7 +26,7 @@
       <p class="etiqueta">Graficación · 3.7 Desarrollo de escenarios VR · Meta Quest 3</p>
       <h1>Sobrevive a la Noche del Zombie</h1>
       <p class="historia">Despiertas en el jardín de una mansión abandonada. Es de noche y los <b>zombies bailarines</b> rondan entre las lápidas.
-        Recoge las <b id="metaCalabazas">12</b> calabazas encendidas antes de que te atrapen. ¡Solo tienes <b>3 vidas</b>!</p>
+        Recoge las <b>8 calabazas</b> de cada nivel antes de que te atrapen y sobrevive a los <b>3 niveles</b>. ¡Solo tienes <b>3 vidas</b>!</p>
 
       <div class="columnas">
         <div>
@@ -52,7 +52,9 @@
           <ul>
             <li>Toca una calabaza para recogerla 🎃</li>
             <li>Si un zombie te alcanza pierdes una vida ❤️</li>
-            <li>Cada calabaza los vuelve más rápidos 😱</li>
+            <li>La calabaza dorada te da una vida extra ✨</li>
+            <li>Cada nivel trae más zombies, más rápidos, y salen de sus tumbas 😱</li>
+            <li>Si escuchas latidos… ¡hay un zombie cerca! 💓</li>
           </ul>
         </div>
       </div>
@@ -62,6 +64,7 @@
         <!-- aquí se inserta el botón "ENTER VR" de three.js -->
       </div>
       <p id="cargando">Cargando zombies…</p>
+      <p id="record"></p>
 
       <footer>
         <span>Integrantes:</span>
@@ -72,7 +75,8 @@
 
   <!-- ===================== HUD (PC) ===================== -->
   <div id="hud">
-    <div class="badge">🎃 <b id="hudCalabazas">0 / 12</b></div>
+    <div class="badge">🌙 Nivel <b id="hudNivel">1 / 3</b></div>
+    <div class="badge">🎃 <b id="hudCalabazas">0 / 8</b></div>
     <div class="badge">❤️ <b id="hudVidas">3</b></div>
     <div class="badge">⏱️ <b id="hudTiempo">0:00</b></div>
   </div>

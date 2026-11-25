@@ -77,7 +77,7 @@ renderer.setAnimationLoop( () => {
 	const dt = Math.min( reloj.getDelta(), 0.05 );
 	ctx.actualizarControles( dt );
 	ctx.actualizarJuego( dt, reloj.elapsedTime );
-	ctx.actualizarEscenario();
+	ctx.actualizarEscenario( dt, reloj.elapsedTime );
 	renderer.render( scene, camera );
 } );
 

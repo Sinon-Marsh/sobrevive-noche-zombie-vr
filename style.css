@@ -40,6 +40,7 @@ kbd {
   border: 2px solid #8be04e !important; background: #142010 !important; color: #e8f5e0 !important;
 }
 .botones button:hover, .botones #VRButton:hover { background: #8be04e !important; color: #0a120a !important; }
+#record { text-align: center; font-size: 14px; color: #ffd34d; margin: 0 0 10px; font-weight: bold; }
 #cargando { text-align: center; font-size: 13px; color: #8aa77a; margin: 4px 0 10px; }
 .tarjeta footer { border-top: 1px solid #2c3a26; padding-top: 10px; font-size: 13px; color: #cfe6c3; text-align: center; }
 .tarjeta footer span { color: #8be04e; font-weight: bold; }
@@ -57,6 +58,7 @@ kbd {
   padding: 22px 36px; border-radius: 16px; background: rgba(8, 12, 8, .85); border: 2px solid #8be04e;
   font-size: 30px; font-weight: bold; color: #8be04e;
 }
+#mensaje { max-width: 90vw; }
 #mensaje small { display: block; font-size: 15px; color: #cfe6c3; margin-top: 8px; font-weight: normal; }
 
 @media (max-width: 720px) { .columnas { grid-template-columns: 1fr; } }
