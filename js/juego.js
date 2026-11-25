@@ -118,19 +118,20 @@ export function crearJuego( ctx ) {
 			const ojos = new THREE.Mesh( new THREE.SphereGeometry( 0.06 ), new THREE.MeshBasicMaterial( { color: 0xff2a2a } ) ); ojos.position.set( 0, 1.45, 0.22 );
 			cuerpo.castShadow = true; z.add( cuerpo, ojos );
 		}
-		z.userData = { mixer, acciones: {}, actual: null, estado: 'deambular', destino: new THREE.Vector3(), espera: 0, gruño: false };
+		z.userData = { mixer, acciones: {}, actual: null, estado: 'deambular', destino: new THREE.Vector3(), espera: 0, gruño: false,
+			tropiezo: 0, cerca: false, impulso: new THREE.Vector3() };
 		scene.add( z );
 		return z;
 	}
-	function animar( z, nombre, fundido = 0.35 ) {
+	function animar( z, nombre, fundido = 0.35, escala = 1 ) {
 		const u = z.userData; if ( ! u.mixer || ! clips[ nombre ] ) return;
 		let a = u.acciones[ nombre ];
 		if ( ! a ) {
 			a = u.acciones[ nombre ] = u.mixer.clipAction( clips[ nombre ] );
-			if ( nombre === 'morir' ) { a.setLoop( THREE.LoopOnce, 1 ); a.clampWhenFinished = true; }
+			if ( nombre === 'morir' || nombre === 'tambalear' ) { a.setLoop( THREE.LoopOnce, 1 ); a.clampWhenFinished = true; }
 		}
-		if ( u.actual === a ) return;
-		a.reset().setEffectiveTimeScale( 1 ).fadeIn( fundido ).play();
+		if ( u.actual === a ) { a.setEffectiveTimeScale( escala ); return; }
+		a.reset().setEffectiveTimeScale( escala ).fadeIn( fundido ).play();
 		if ( u.actual ) u.actual.fadeOut( fundido );
 		u.actual = a;
 	}
@@ -329,16 +330,30 @@ export function crearJuego( ctx ) {
 			const dist = Math.hypot( cab.x - z.position.x, cab.z - z.position.z );
 			masCerca = Math.min( masCerca, dist );
 			let vel;
-			if ( dist < RADIO_VISION ) {                       // ¡te vio! te persigue
+			if ( u.tropiezo > 0 ) {                           // ¡lo esquivaste! pierde el equilibrio
+				u.tropiezo -= dt;
+				dir.copy( u.impulso );
+				vel = VEL_DEAMBULAR * 0.6 * Math.max( 0, u.tropiezo / 2 );   // sigue de frente por el impulso y frena
+				if ( u.tropiezo <= 0 ) { u.estado = 'deambular'; u.cerca = false; }
+			} else if ( dist < RADIO_VISION ) {                // ¡te vio! te persigue
 				if ( u.estado !== 'perseguir' ) { u.estado = 'perseguir'; sonar( 'grunido', 0.8, z ); }
 				dir.set( cab.x - z.position.x, 0, cab.z - z.position.z ).normalize();
-				vel = VEL_PERSEGUIR * dificultad; animar( z, 'tambalear' );
-				if ( dist < RADIO_ATAQUE ) herir( z );
+				vel = VEL_PERSEGUIR * dificultad;
+				animar( z, 'caminar', 0.3, 1.5 * dificultad );   // camina más rápido al perseguir
+				if ( dist < RADIO_ATAQUE ) { herir( z ); u.cerca = false; }
+				else if ( dist < 2 ) u.cerca = true;             // casi te alcanza…
+				else if ( u.cerca && dist > 3 ) {                // …pero lo esquivaste
+					u.cerca = false; u.estado = 'tropiezo';
+					u.impulso.copy( dir );
+					u.tropiezo = Math.min( clips.tambalear?.duration ?? 2, 2.6 );
+					animar( z, 'tambalear', 0.2 ); sonar( 'grunido', 0.6, z );
+					return;
+				}
 			} else {                                          // deambula entre las lápidas
-				u.estado = 'deambular';
+				u.estado = 'deambular'; u.cerca = false;
 				if ( z.position.distanceTo( u.destino ) < 1 ) u.destino.copy( lugarLibre( 3, ctx.LIMITE - 2 ) );
 				dir.copy( u.destino ).sub( z.position ).setY( 0 ).normalize();
-				vel = VEL_DEAMBULAR; animar( z, 'caminar' );
+				vel = VEL_DEAMBULAR; animar( z, 'caminar', 0.35, 1 );
 			}
 			z.position.addScaledVector( dir, vel * dt );
 			for ( const o of ctx.colliders ) {                 // rodea obstáculos
