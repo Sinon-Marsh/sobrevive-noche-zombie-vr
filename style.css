@@ -121,7 +121,7 @@ body.jugando .fondo-glow { opacity: 0; }
 .stat b { font-size: 30px; font-weight: 700; }
 .stat small { color: var(--verde); font-size: 12px; }
 .equipo { grid-column: span 4; }
-.consejo { grid-column: span 2; }
+.consejo { grid-column: span 1; }
 .consejo p { margin: 0; color: #d3d8f5; line-height: 1.55; font-size: 15px; min-height: 46px; }
 .mini-btn { border: 1px solid var(--borde); background: rgba(255, 255, 255, .05); border-radius: 9px; padding: 5px 10px; cursor: pointer; font-size: 12px; color: var(--lila); }
 .equipo ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -183,7 +183,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bord
 .ventana-pie { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .lista-botones { display: grid; gap: 10px; width: 100%; margin-top: 18px; }
 .fin-cab { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; }
-.grid-fin { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid-fin { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .grid-fin .mini { padding: 14px 16px; border-radius: 14px; }
 .grid-fin span { display: block; color: var(--tenue); font-size: 13px; }
 .grid-fin b { font-size: 26px; }
@@ -200,6 +200,7 @@ body.jugando #hud { display: block; }
 .hud-card.ancho { min-width: 170px; }
 .hud-card span { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--tenue); }
 .hud-card b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.municion { color: #9cff4a; letter-spacing: 3px; text-shadow: 0 0 10px rgba(156, 255, 74, .5); }
 .corazones { color: var(--rojo); letter-spacing: 2px; text-shadow: 0 0 10px rgba(255, 77, 109, .6); }
 .progreso { height: 5px; border-radius: 99px; background: rgba(255, 255, 255, .1); margin-top: 6px; overflow: hidden; }
 .progreso i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff8a1f, var(--oro)); transition: width .3s; }

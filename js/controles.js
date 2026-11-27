@@ -30,6 +30,8 @@ export function crearControles( ctx ) {
 		const grip = renderer.xr.getControllerGrip( i );
 		grip.add( fabrica.createControllerModel( grip ) );
 		player.add( c, grip );
+		c.userData.grip = grip;
+		c.userData.pos = new THREE.Vector3(); c.userData.prev = new THREE.Vector3(); c.userData.vel = new THREE.Vector3();
 		c.addEventListener( 'connected', ( e ) => { c.userData.mano = e.data.handedness; c.userData.gamepad = e.data.gamepad; } );
 		c.addEventListener( 'disconnected', () => { c.userData.mano = null; } );
 		return c;
@@ -82,6 +84,7 @@ export function crearControles( ctx ) {
 			}
 		} );
 		c.addEventListener( 'squeezestart', () => { if ( ctx.estado === 'jugando' ) ctx.juego?.agarrar( c ); } );
+		c.addEventListener( 'squeezeend', () => { if ( ctx.estado === 'jugando' ) ctx.juego?.soltar( c ); } );
 	} );
 
 	function actualizarArco() {
@@ -210,8 +213,30 @@ export function crearControles( ctx ) {
 		mover( ( -sx * f + cz * l ) * vel, ( -cz * f - sx * l ) * vel );
 	}
 
+	// ---------- Seguimiento de las manos (posición y velocidad real del control) ----------
+	const tmpV = new THREE.Vector3();
+	function seguirManos( dt ) {
+		for ( const c of mandos ) {
+			const u = c.userData; if ( ! u.mano ) continue;
+			u.grip.getWorldPosition( u.pos );
+			if ( dt > 0 ) {
+				tmpV.copy( u.pos ).sub( u.prev ).divideScalar( dt );
+				u.vel.lerp( tmpV, 0.45 );                 // suavizado para que el lanzamiento sea estable
+			}
+			u.prev.copy( u.pos );
+		}
+	}
+
+	// ---------- PC: lanzar (clic) y empujar (Q) ----------
+	addEventListener( 'mousedown', ( e ) => {
+		if ( ctx.estado !== 'jugando' || renderer.xr.isPresenting || e.button !== 0 ) return;
+		if ( document.pointerLockElement === renderer.domElement ) ctx.juego?.lanzarPC();
+	} );
+	addEventListener( 'keydown', ( e ) => { if ( ctx.estado === 'jugando' && ctx.modoPC && e.code === 'KeyQ' && ! e.repeat ) ctx.juego?.empujarPC(); } );
+
 	ctx.actualizarControles = ( dt ) => {
 		colocarLinterna();
+		if ( renderer.xr.isPresenting ) seguirManos( dt );
 		if ( renderer.xr.isPresenting ) {
 			actualizarVR( dt );
 			if ( ctx.estado === 'jugando' ) actualizarArco(); else { arco.visible = marca.visible = false; }

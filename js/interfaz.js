@@ -123,18 +123,19 @@ export function crearInterfaz( ctx ) {
 	function pintarStats() {
 		const s = cargarStats();
 		$( '#stPartidas' ).textContent = s.partidas;
-		$( '#stVictorias' ).textContent = `${s.victorias} ${s.victorias === 1 ? 'victoria' : 'victorias'}`;
+		$( '#stVictorias' ).textContent = `Mejor oleada: ${s.mejorOleada || 0}`;
 		$( '#stCalabazas' ).textContent = s.calabazas;
 		$( '#stEsquives' ).textContent = s.esquives;
 		const m = s.mejores[ 0 ];
 		$( '#stMejor' ).textContent = m ? m.puntos.toLocaleString( 'es-MX' ) : '—';
-		$( '#stMejorTiempo' ).textContent = m ? `${m.gano ? 'Victoria' : 'Nivel ' + m.nivel} · ${formato( m.tiempo )}` : 'Aún sin récord';
+		$( '#stMejorTiempo' ).textContent = m ? `Oleada ${m.nivel} · ${formato( m.tiempo )}` : 'Aún sin récord';
+		$( '#stAturdidos' ).textContent = s.aturdidos || 0;
 	}
 	function pintarRecords() {
 		const s = cargarStats(), tb = $( '#tablaRecords tbody' );
 		tb.innerHTML = s.mejores.length ? '' : '<tr><td colspan="7" class="tenue">Todavía no hay partidas. ¡Juega una!</td></tr>';
 		s.mejores.forEach( ( m, i ) => {
-			tb.insertAdjacentHTML( 'beforeend', `<tr><td>${[ '🥇', '🥈', '🥉' ][ i ] || i + 1}</td><td>${m.puntos.toLocaleString( 'es-MX' )}</td><td>${m.gano ? '🏆 Sobrevivió' : '🧟 Atrapado'}</td><td>${m.nivel}</td><td>${formato( m.tiempo )}</td><td>${DIFICULTADES[ m.dificultad ]?.nombre ?? '—'}</td><td>${m.fecha}</td></tr>` );
+			tb.insertAdjacentHTML( 'beforeend', `<tr><td>${[ '🥇', '🥈', '🥉' ][ i ] || i + 1}</td><td>${m.puntos.toLocaleString( 'es-MX' )}</td><td>🌙 ${m.nivel}</td><td>🎃 ${m.calabazas ?? '—'}</td><td>${formato( m.tiempo )}</td><td>${DIFICULTADES[ m.dificultad ]?.nombre ?? '—'}</td><td>${m.fecha}</td></tr>` );
 		} );
 	}
 	pintarStats();
@@ -147,7 +148,9 @@ export function crearInterfaz( ctx ) {
 		'En VR, el teletransporte (gatillo derecho) es la mejor forma de escapar cuando te rodean.',
 		'Usa la linterna (F o gatillo izquierdo) para ver mejor entre las lápidas cuando hay niebla.',
 		'Cada calabaza que recoges vuelve a los zombies un poco más rápidos. ¡No te confíes!',
-		'Terminar rápido da bonus de tiempo; terminar con vidas extra suma 300 puntos por cada una.',
+		'Las calabazas podridas (verdes) no cuentan para la oleada: son tu arma. Agárralas y lánzalas a los zombies.',
+		'En VR, un manotazo rápido empuja al zombie y lo hace tropezar. ¡Mueve la mano con fuerza!',
+		'Cada 4 calabazas aparece un zombie más. Aturdirlos a tiempo es la clave para llegar lejos.',
 		'Si te mareas en VR, cambia el giro a pasos de 30° o 45° en Ajustes › Controles.'
 	];
 	let iConsejo = Math.floor( Math.random() * CONSEJOS.length );
@@ -157,9 +160,10 @@ export function crearInterfaz( ctx ) {
 
 	function registrarPartida( d ) {
 		const s = cargarStats();
-		s.partidas ++; if ( d.gano ) s.victorias ++;
+		s.partidas ++; s.mejorOleada = Math.max( s.mejorOleada || 0, d.nivel );
 		s.calabazas += d.calabazas; s.esquives += d.esquives; s.tiempoTotal += d.tiempo;
-		const reg = { puntos: d.puntos, gano: d.gano, nivel: d.nivel, tiempo: d.tiempo, dificultad: d.dificultad, fecha: new Date().toLocaleDateString( 'es-MX' ) };
+		s.aturdidos = ( s.aturdidos || 0 ) + d.aturdidos;
+		const reg = { puntos: d.puntos, nivel: d.nivel, calabazas: d.calabazas, tiempo: d.tiempo, dificultad: d.dificultad, fecha: new Date().toLocaleDateString( 'es-MX' ) };
 		const anterior = s.mejores[ 0 ]?.puntos ?? -1;
 		s.mejores.push( reg ); s.mejores.sort( ( a, b ) => b.puntos - a.puntos ); s.mejores = s.mejores.slice( 0, 8 );
 		guardarStats( s ); pintarStats();
@@ -169,24 +173,27 @@ export function crearInterfaz( ctx ) {
 	// ---------------- Pantalla final ----------------
 	function fin( d ) {
 		const record = registrarPartida( d );
-		$( '#finIcono' ).textContent = d.gano ? '🏆' : '🧟';
-		$( '#finTitulo' ).textContent = d.gano ? '¡Sobreviviste a la noche!' : '¡Te atraparon!';
-		$( '#finSub' ).textContent = d.gano ? `Superaste los ${d.niveles} niveles en dificultad ${DIFICULTADES[ d.dificultad ].nombre}` : `Llegaste al nivel ${d.nivel} de ${d.niveles}`;
+		$( '#finIcono' ).textContent = record ? '🏆' : '🧟';
+		$( '#finTitulo' ).textContent = record ? '¡Nuevo récord personal!' : '¡La noche te alcanzó!';
+		$( '#finSub' ).textContent = `Sobreviviste ${formato( d.tiempo )} y llegaste a la oleada ${d.nivel} · ${DIFICULTADES[ d.dificultad ].nombre}`;
 		$( '#finPuntos' ).textContent = d.puntos.toLocaleString( 'es-MX' );
 		$( '#finTiempo' ).textContent = formato( d.tiempo );
-		$( '#finNivel' ).textContent = `${d.nivel} / ${d.niveles}`;
+		$( '#finNivel' ).textContent = d.nivel;
 		$( '#finCalabazas' ).textContent = d.calabazas;
 		$( '#finEsquives' ).textContent = d.esquives;
-		$( '#finVidas' ).textContent = d.vidasPerdidas;
+		$( '#finVidas' ).textContent = d.aturdidos;
+		$( '#finEmpujones' ).textContent = d.empujones;
+		$( '#finRecordMini' ).textContent = ( cargarStats().mejores[ 0 ]?.puntos ?? d.puntos ).toLocaleString( 'es-MX' );
 		$( '#finRecord' ).style.display = record ? 'block' : 'none';
 		setTimeout( () => mostrar( 'fin' ), 1600 );
 		return record;
 	}
 
 	// ---------------- HUD ----------------
-	const h = { niv: $( '#hudNivel' ), pts: $( '#hudPuntos' ), cal: $( '#hudCalabazas' ), prog: $( '#hudProgreso' ), vid: $( '#hudVidas' ), tie: $( '#hudTiempo' ) };
+	const h = { niv: $( '#hudNivel' ), pts: $( '#hudPuntos' ), cal: $( '#hudCalabazas' ), prog: $( '#hudProgreso' ), vid: $( '#hudVidas' ), tie: $( '#hudTiempo' ), mun: $( '#hudMunicion' ) };
 	function hud( d ) {
-		h.niv.textContent = `${d.nivel} / ${d.niveles}`;
+		h.niv.textContent = d.nivel;
+		h.mun.textContent = '●'.repeat( d.municion ) + '○'.repeat( 3 - d.municion );
 		h.pts.textContent = d.puntos.toLocaleString( 'es-MX' );
 		h.cal.textContent = `${d.recogidas} / ${d.meta}`;
 		h.prog.style.width = ( d.recogidas / d.meta * 100 ) + '%';
@@ -203,7 +210,7 @@ export function crearInterfaz( ctx ) {
 	// ---------------- Radar ----------------
 	const rc = $( '#radar' ).getContext( '2d' ), R = 90, ALCANCE = 18;
 	let barrido = 0;
-	function radar( pos, yaw, zombies, calabazas, dorada, dt ) {
+	function radar( pos, yaw, zombies, calabazas, dorada, dt, podridas = [] ) {
 		barrido += dt * 2.2;
 		rc.clearRect( 0, 0, 180, 180 );
 		rc.save(); rc.translate( R, R );
@@ -229,7 +236,8 @@ export function crearInterfaz( ctx ) {
 		};
 		calabazas.forEach( ( c ) => c.visible && punto( c.position.x, c.position.z, '#ff9a2e', 3.2 ) );
 		if ( dorada.visible ) punto( dorada.position.x, dorada.position.z, '#ffd34d', 4.5 );
-		zombies.forEach( ( z ) => punto( z.position.x, z.position.z, z.userData.estado === 'perseguir' ? '#ff4d6d' : '#c0c7e8', 3.6 ) );
+		podridas.forEach( ( q ) => q.visible && q.userData.estado === 'suelo' && punto( q.position.x, q.position.z, '#9cff4a', 2.4 ) );
+		zombies.forEach( ( z ) => punto( z.position.x, z.position.z, z.userData.aturdido > 0 ? '#6b7280' : z.userData.estado === 'perseguir' ? '#ff4d6d' : '#c0c7e8', 3.6 ) );
 		// jugador
 		rc.fillStyle = '#8be04e'; rc.beginPath(); rc.moveTo( 0, -8 ); rc.lineTo( 6, 6 ); rc.lineTo( -6, 6 ); rc.closePath(); rc.fill();
 		rc.restore();

@@ -69,7 +69,7 @@
             <div class="blob"></div>
             <span class="etiqueta">Nueva partida</span>
             <h2 class="titulo-juego">Sobrevive a la<br><em>Noche del Zombie</em></h2>
-            <p>Recoge las calabazas encendidas en el jardín de la mansión abandonada y supera los <b>3 niveles</b> sin que los zombies bailarines te atrapen.</p>
+            <p>Recoge calabazas encendidas en el jardín de la mansión abandonada y sobrevive <b>oleadas infinitas</b>. Usa tus <b>manos</b>: agarra calabazas podridas y lánzalas, o empuja a los zombies que se acerquen.</p>
             <div class="selector" id="selDificultad">
               <button data-v="facil">Fácil</button>
               <button data-v="normal">Normal</button>
@@ -81,11 +81,12 @@
             </div>
           </div>
 
-          <div class="glass tarjeta stat"><span>Partidas jugadas</span><b id="stPartidas">0</b><small id="stVictorias">0 victorias</small></div>
+          <div class="glass tarjeta stat"><span>Partidas jugadas</span><b id="stPartidas">0</b><small id="stVictorias">Mejor oleada: 0</small></div>
           <div class="glass tarjeta stat"><span>Mejor puntuación</span><b id="stMejor">—</b><small id="stMejorTiempo">Aún sin récord</small></div>
           <div class="glass tarjeta stat"><span>Calabazas recogidas</span><b id="stCalabazas">0</b><small>en total</small></div>
           <div class="glass tarjeta stat"><span>Zombies esquivados</span><b id="stEsquives">0</b><small>los hiciste tropezar</small></div>
-          <div class="glass tarjeta consejo">
+          <div class="glass tarjeta stat"><span>Zombies aturdidos</span><b id="stAturdidos">0</b><small>a calabazazos</small></div>
+          <div class="glass tarjeta consejo corto">
             <div class="tarjeta-cab"><b>💡 Consejo de supervivencia</b><button class="mini-btn" id="btnConsejo">Otro →</button></div>
             <p id="txtConsejo"></p>
           </div>
@@ -113,6 +114,8 @@
               <li><kbd>Gatillo der.</kbd>Teletransporte</li>
               <li><kbd>Gatillo izq.</kbd>Linterna</li>
               <li><kbd>Grip</kbd>Agarrar calabaza</li>
+              <li><kbd>Grip + soltar</kbd>Lanzar calabaza podrida</li>
+              <li><kbd>Manotazo</kbd>Empujar zombie</li>
               <li><kbd>B / Y</kbd>Pausa</li>
               <li><kbd>A</kbd>Reiniciar al terminar</li>
             </ul>
@@ -124,7 +127,9 @@
               <li><kbd>Shift</kbd>Correr</li>
               <li><kbd>Ratón</kbd>Mirar</li>
               <li><kbd>F</kbd>Linterna</li>
-              <li><kbd>E</kbd>Recoger</li>
+              <li><kbd>E</kbd>Recoger (y tomar podridas)</li>
+              <li><kbd>Clic</kbd>Lanzar podrida</li>
+              <li><kbd>Q</kbd>Empujar zombie</li>
               <li><kbd>Esc / P</kbd>Pausa</li>
               <li><kbd>R</kbd>Reiniciar</li>
             </ul>
@@ -133,12 +138,12 @@
             <div class="tarjeta-cab"><b>📜 Reglas</b></div>
             <ul class="reglas">
               <li>🎃 Toca las calabazas para recogerlas. +100 pts</li>
+              <li>🟢 Lanza calabazas podridas: el zombie cae aturdido. +75 pts</li>
+              <li>✋ Dale un manotazo rápido a un zombie para empujarlo. +50 pts</li>
+              <li>💫 Pasa a su lado para que tropiece. +50 pts</li>
               <li>✨ La calabaza dorada da una vida extra. +250 pts</li>
-              <li>💫 Pasa al lado de un zombie para que tropiece. +50 pts</li>
-              <li>🧟 Si te toca de frente pierdes una vida.</li>
-              <li>🌙 Cada nivel trae más zombies, más rápidos.</li>
+              <li>♾️ Las oleadas no terminan: cada calabaza los vuelve más rápidos y numerosos.</li>
               <li>💓 Si escuchas latidos… hay uno cerca.</li>
-              <li>⏱️ Termina rápido para ganar bonus de tiempo.</li>
             </ul>
           </div>
         </div>
@@ -149,7 +154,7 @@
         <header class="cabecera"><div><h1>Récords</h1><p class="sub">Mejores partidas en este dispositivo</p></div></header>
         <div class="glass tarjeta">
           <table class="tabla" id="tablaRecords">
-            <thead><tr><th>#</th><th>Puntuación</th><th>Resultado</th><th>Nivel</th><th>Tiempo</th><th>Dificultad</th><th>Fecha</th></tr></thead>
+            <thead><tr><th>#</th><th>Puntuación</th><th>Oleada</th><th>Calabazas</th><th>Tiempo</th><th>Dificultad</th><th>Fecha</th></tr></thead>
             <tbody></tbody>
           </table>
           <button class="btn fantasma" id="btnBorrarRecords">Borrar récords</button>
@@ -218,10 +223,12 @@
       <div class="grid-fin">
         <div class="glass mini"><span>Puntuación</span><b id="finPuntos">0</b></div>
         <div class="glass mini"><span>Tiempo</span><b id="finTiempo">0:00</b></div>
-        <div class="glass mini"><span>Nivel</span><b id="finNivel">1</b></div>
+        <div class="glass mini"><span>Oleada alcanzada</span><b id="finNivel">1</b></div>
         <div class="glass mini"><span>Calabazas</span><b id="finCalabazas">0</b></div>
         <div class="glass mini"><span>Esquives</span><b id="finEsquives">0</b></div>
-        <div class="glass mini"><span>Vidas perdidas</span><b id="finVidas">0</b></div>
+        <div class="glass mini"><span>Zombies aturdidos</span><b id="finVidas">0</b></div>
+        <div class="glass mini"><span>Empujones</span><b id="finEmpujones">0</b></div>
+        <div class="glass mini"><span>Récord</span><b id="finRecordMini">—</b></div>
       </div>
       <p class="nuevo-record" id="finRecord">✨ ¡Nuevo récord personal! ✨</p>
       <div class="ventana-pie">
@@ -236,7 +243,7 @@
     <div class="hud-izq">
       <button class="glass hud-btn" id="btnPausa" title="Pausa (Esc / P)">⏸</button>
       <div class="glass hud-card">
-        <span>Nivel</span><b id="hudNivel">1 / 3</b>
+        <span>Oleada</span><b id="hudNivel">1</b>
       </div>
       <div class="glass hud-card">
         <span>Puntos</span><b id="hudPuntos">0</b>
@@ -248,6 +255,7 @@
         <div class="progreso"><i id="hudProgreso"></i></div>
       </div>
       <div class="glass hud-card"><span>Vidas</span><b id="hudVidas" class="corazones">❤❤❤</b></div>
+      <div class="glass hud-card"><span>Podridas</span><b id="hudMunicion" class="municion">○○○</b></div>
       <div class="glass hud-card"><span>Tiempo</span><b id="hudTiempo">0:00</b></div>
     </div>
     <div id="toasts"></div>
