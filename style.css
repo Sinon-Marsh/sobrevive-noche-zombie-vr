@@ -222,6 +222,12 @@ body.jugando.mira #mira { display: block; }
   .hero, .equipo, .consejo { grid-column: span 2; }
   .equipo ul, .grid-3 { grid-template-columns: 1fr; }
 }
+@media (max-width: 980px) {
+  .hud-der { top: auto; bottom: 16px; right: auto; left: 16px; flex-wrap: wrap; max-width: calc(100% - 32px); }
+  .hud-card { padding: 7px 12px; min-width: 70px; }
+  .hud-card.ancho { min-width: 130px; }
+  .radar-caja { transform: scale(.7); transform-origin: top right; top: 16px; bottom: auto; }
+}
 @media (max-width: 760px) {
   #menu { flex-direction: column; overflow-y: auto; }
   .lateral { width: 100%; }
