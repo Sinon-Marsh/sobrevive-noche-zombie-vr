@@ -14,14 +14,14 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 
 const VEL_CAMINAR = 2.4, VEL_CORRER = 4.2, RADIO_JUGADOR = 0.35;
-const GIRO = THREE.MathUtils.degToRad( 30 );
 
 export function crearControles( ctx ) {
 	const { renderer, scene, camera, player } = ctx;
 
-	// ---------- Botón ENTER VR (se coloca en la portada) ----------
-	const vrBtn = VRButton.createButton( renderer );
-	document.getElementById( 'botones' ).appendChild( vrBtn );
+	const A = ctx.ajustes;
+	// ---------- Botón ENTER VR (se coloca en el menú principal) ----------
+	const vrBtn = VRButton.createButton( renderer, { optionalFeatures: [ 'local-floor', 'bounded-floor' ] } );
+	document.getElementById( 'vrSlotHero' ).appendChild( vrBtn );
 
 	// ---------- Controles y sus modelos 3D ----------
 	const fabrica = new XRControllerModelFactory();
@@ -65,6 +65,8 @@ export function crearControles( ctx ) {
 
 	mandos.forEach( ( c ) => {
 		c.addEventListener( 'selectstart', () => {
+			if ( ctx.estado === 'pausa' ) { menuVR.seleccionar( c ); return; }
+			if ( ctx.estado !== 'jugando' ) return;
 			if ( c.userData.mano === 'right' ) { arco.visible = marca.visible = true; c.userData.apuntando = true; }
 			if ( c.userData.mano === 'left' ) alternarLinterna();
 		} );
@@ -79,7 +81,7 @@ export function crearControles( ctx ) {
 				vibrar( 'right', 0.5, 60 );
 			}
 		} );
-		c.addEventListener( 'squeezestart', () => ctx.juego?.agarrar( c ) );
+		c.addEventListener( 'squeezestart', () => { if ( ctx.estado === 'jugando' ) ctx.juego?.agarrar( c ); } );
 	} );
 
 	function actualizarArco() {
@@ -137,25 +139,38 @@ export function crearControles( ctx ) {
 		for ( const c of mandos ) {
 			const gp = c.userData.gamepad; if ( ! gp ) continue;
 			const ax = gp.axes[ 2 ] ?? gp.axes[ 0 ] ?? 0, ay = gp.axes[ 3 ] ?? gp.axes[ 1 ] ?? 0;
-			if ( c.userData.mano === 'left' && ctx.juego?.activo ) {
+			if ( c.userData.mano === 'left' && ctx.juego?.activo && ctx.estado === 'jugando' ) {
 				const x = Math.abs( ax ) > 0.15 ? ax : 0, y = Math.abs( ay ) > 0.15 ? ay : 0;
 				if ( x || y ) {
 					const fwd = new THREE.Vector3(); camera.getWorldDirection( fwd ); fwd.y = 0; fwd.normalize();
 					const der = new THREE.Vector3( -fwd.z, 0, fwd.x );
-					const vel = VEL_CAMINAR * dt;
+					const vel = VEL_CAMINAR * A.velocidad * dt;
 					mover( ( fwd.x * -y + der.x * x ) * vel, ( fwd.z * -y + der.z * x ) * vel );
 				}
 			}
+			// B (derecho) o Y (izquierdo): pausa
+			const b = !! gp.buttons[ 5 ]?.pressed;
+			if ( b && ! c.userData.botonB ) { if ( ctx.estado === 'jugando' ) ctx.pausar(); else if ( ctx.estado === 'pausa' ) ctx.reanudar(); }
+			c.userData.botonB = b;
+			if ( c.userData.mano === 'right' && ctx.estado === 'jugando' ) {
+				if ( A.giroVR === 'suave' ) {
+					if ( Math.abs( ax ) > 0.2 ) girarAlrededorDeCabeza( -ax * 2.2 * dt );
+				} else {
+					const giro = THREE.MathUtils.degToRad( A.giroVR === 'paso45' ? 45 : 30 );
+					if ( Math.abs( ax ) > 0.7 && giroListo ) { girarAlrededorDeCabeza( ax > 0 ? -giro : giro ); giroListo = false; }
+					else if ( Math.abs( ax ) < 0.3 ) giroListo = true;
+				}
+			}
 			if ( c.userData.mano === 'right' ) {
-				if ( Math.abs( ax ) > 0.7 && giroListo ) {
-					girarAlrededorDeCabeza( ax > 0 ? -GIRO : GIRO ); giroListo = false;
-				} else if ( Math.abs( ax ) < 0.3 ) giroListo = true;
 				const a = !! gp.buttons[ 4 ]?.pressed;
-				if ( a && ! botonA ) ctx.juego?.reiniciar();
+				if ( a && ! botonA && ( ctx.estado === 'fin' || ctx.juego?.fin ) ) ctx.jugar( 'vr' );
 				botonA = a;
 			}
 		}
 	}
+
+	// ---------- Menú de pausa dentro del VR (se apunta con el control derecho) ----------
+	const menuVR = crearMenuVR( ctx );
 	function girarAlrededorDeCabeza( ang ) {
 		const cabeza = new THREE.Vector3(); camera.getWorldPosition( cabeza );
 		player.position.sub( cabeza ).applyAxisAngle( new THREE.Vector3( 0, 1, 0 ), ang ).add( cabeza );
@@ -167,32 +182,111 @@ export function crearControles( ctx ) {
 	addEventListener( 'keydown', ( e ) => {
 		teclas[ e.code ] = true;
 		if ( ! ctx.modoPC ) return;
+		if ( e.code === 'KeyP' ) { if ( ctx.estado === 'jugando' ) ctx.pausar(); else if ( ctx.estado === 'pausa' ) ctx.reanudar(); }
+		if ( ctx.estado !== 'jugando' ) return;
 		if ( e.code === 'KeyF' ) alternarLinterna();
 		if ( e.code === 'KeyE' ) ctx.juego?.agarrar( camera );
-		if ( e.code === 'KeyR' ) ctx.juego?.reiniciar();
+		if ( e.code === 'KeyR' ) ctx.jugar( 'pc' );
 	} );
 	addEventListener( 'keyup', ( e ) => { teclas[ e.code ] = false; } );
-	renderer.domElement.addEventListener( 'click', () => { if ( ctx.modoPC && ! renderer.xr.isPresenting ) renderer.domElement.requestPointerLock?.(); } );
+	renderer.domElement.addEventListener( 'click', () => { if ( ctx.modoPC && ctx.estado === 'jugando' && ! renderer.xr.isPresenting ) bloquearRaton(); } );
 	addEventListener( 'mousemove', ( e ) => {
 		if ( document.pointerLockElement !== renderer.domElement ) return;
-		yaw -= e.movementX * 0.0022; pitch = THREE.MathUtils.clamp( pitch - e.movementY * 0.0022, -1.4, 1.4 );
+		const k = 0.0022 * A.sensibilidad;
+		yaw -= e.movementX * k; pitch = THREE.MathUtils.clamp( pitch - e.movementY * k * ( A.invertirY ? -1 : 1 ), -1.4, 1.4 );
 	} );
-	ctx.activarPC = () => { ctx.modoPC = true; renderer.domElement.requestPointerLock?.(); };
+	function bloquearRaton() { try { const p = renderer.domElement.requestPointerLock?.(); p?.catch?.( () => {} ); } catch {} }
+	ctx.bloquearRaton = bloquearRaton;
+	ctx.activarPC = () => { ctx.modoPC = true; bloquearRaton(); };
+	ctx.reiniciarVista = () => { yaw = 0; pitch = 0; };
 
 	function actualizarPC( dt ) {
 		player.rotation.y = yaw; camera.rotation.set( pitch, 0, 0 );
-		if ( ! ctx.juego?.activo ) return;
+		if ( ! ctx.juego?.activo || ctx.estado !== 'jugando' ) return;
 		const f = ( teclas.KeyW ? 1 : 0 ) - ( teclas.KeyS ? 1 : 0 ), l = ( teclas.KeyD ? 1 : 0 ) - ( teclas.KeyA ? 1 : 0 );
 		if ( ! f && ! l ) return;
-		const vel = ( teclas.ShiftLeft || teclas.ShiftRight ? VEL_CORRER : VEL_CAMINAR ) * dt;
+		const vel = ( teclas.ShiftLeft || teclas.ShiftRight ? VEL_CORRER : VEL_CAMINAR ) * A.velocidad * dt;
 		const sx = Math.sin( yaw ), cz = Math.cos( yaw );
 		mover( ( -sx * f + cz * l ) * vel, ( -cz * f - sx * l ) * vel );
 	}
 
 	ctx.actualizarControles = ( dt ) => {
 		colocarLinterna();
-		if ( renderer.xr.isPresenting ) { actualizarVR( dt ); actualizarArco(); }
-		else actualizarPC( dt );
+		if ( renderer.xr.isPresenting ) {
+			actualizarVR( dt );
+			if ( ctx.estado === 'jugando' ) actualizarArco(); else { arco.visible = marca.visible = false; }
+			menuVR.actualizar( mando( 'right' ) );
+		} else actualizarPC( dt );
 	};
+	ctx.menuVR = menuVR;
 	ctx.mandos = mandos;
+}
+
+// Panel 3D de pausa para VR: botones que se apuntan con un rayo y se eligen con el gatillo
+function crearMenuVR( ctx ) {
+	const { scene, camera } = ctx;
+	const grupo = new THREE.Group(); grupo.visible = false; scene.add( grupo );
+	const opciones = [
+		{ id: 'continuar', texto: '▶  Continuar', accion: () => ctx.reanudar() },
+		{ id: 'reiniciar', texto: '↻  Reiniciar partida', accion: () => ctx.jugar( 'vr' ) },
+		{ id: 'salir', texto: '⌂  Salir al menú', accion: () => ctx.irAlMenu() }
+	];
+	// fondo
+	const fondoC = document.createElement( 'canvas' ); fondoC.width = 512; fondoC.height = 560;
+	const fg = fondoC.getContext( '2d' );
+	const gr = fg.createLinearGradient( 0, 0, 512, 560 ); gr.addColorStop( 0, 'rgba(40,30,90,0.9)' ); gr.addColorStop( 1, 'rgba(14,30,70,0.9)' );
+	fg.fillStyle = gr; fg.strokeStyle = 'rgba(167,139,250,0.8)'; fg.lineWidth = 4;
+	fg.beginPath(); fg.roundRect( 4, 4, 504, 552, 40 ); fg.fill(); fg.stroke();
+	fg.fillStyle = '#fff'; fg.font = 'bold 56px Arial'; fg.textAlign = 'center'; fg.fillText( 'Pausa', 256, 92 );
+	fg.fillStyle = '#9aa3c7'; fg.font = '26px Arial'; fg.fillText( 'Apunta y presiona el gatillo', 256, 136 );
+	const fondo = new THREE.Mesh( new THREE.PlaneGeometry( 0.64, 0.7 ), new THREE.MeshBasicMaterial( { map: new THREE.CanvasTexture( fondoC ), transparent: true, fog: false, depthTest: false } ) );
+	fondo.renderOrder = 20; grupo.add( fondo );
+	const botones = opciones.map( ( o, i ) => {
+		const c = document.createElement( 'canvas' ); c.width = 440; c.height = 96;
+		const tex = new THREE.CanvasTexture( c );
+		const m = new THREE.Mesh( new THREE.PlaneGeometry( 0.55, 0.12 ), new THREE.MeshBasicMaterial( { map: tex, transparent: true, fog: false, depthTest: false } ) );
+		m.position.set( 0, 0.08 - i * 0.15, 0.002 ); m.renderOrder = 21;
+		m.userData = { ...o, c, tex, hover: null };
+		grupo.add( m ); return m;
+	} );
+	function pintar( b, hover ) {
+		if ( b.userData.hover === hover ) return; b.userData.hover = hover;
+		const g = b.userData.c.getContext( '2d' ); g.clearRect( 0, 0, 440, 96 );
+		if ( hover ) { const gg = g.createLinearGradient( 0, 0, 440, 0 ); gg.addColorStop( 0, '#7c5cff' ); gg.addColorStop( 1, '#38bdf8' ); g.fillStyle = gg; }
+		else g.fillStyle = 'rgba(255,255,255,0.08)';
+		g.strokeStyle = 'rgba(167,139,250,0.6)'; g.lineWidth = 3;
+		g.beginPath(); g.roundRect( 3, 3, 434, 90, 22 ); g.fill(); g.stroke();
+		g.fillStyle = '#fff'; g.font = 'bold 38px Arial'; g.textAlign = 'center'; g.fillText( b.userData.texto, 220, 60 );
+		b.userData.tex.needsUpdate = true;
+	}
+	botones.forEach( ( b ) => pintar( b, false ) );
+	// rayo
+	const rayo = new THREE.Line( new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3(), new THREE.Vector3( 0, 0, -1 ) ] ), new THREE.LineBasicMaterial( { color: 0xa78bfa } ) );
+	rayo.scale.z = 3; rayo.visible = false;
+	const ray = new THREE.Raycaster(), m4 = new THREE.Matrix4();
+	let elegido = null, mandoConRayo = null;
+
+	return {
+		mostrar() {
+			const p = new THREE.Vector3(), d = new THREE.Vector3();
+			camera.getWorldPosition( p ); camera.getWorldDirection( d ); d.y = 0; d.normalize();
+			grupo.position.copy( p ).addScaledVector( d, 1.3 ); grupo.position.y = p.y - 0.05;
+			grupo.lookAt( p.x, grupo.position.y, p.z );
+			grupo.visible = true;
+		},
+		ocultar() { grupo.visible = false; rayo.visible = false; },
+		actualizar( c ) {
+			if ( ! grupo.visible || ! c ) { rayo.visible = false; return; }
+			if ( mandoConRayo !== c ) { c.add( rayo ); mandoConRayo = c; }
+			rayo.visible = true;
+			m4.identity().extractRotation( c.matrixWorld );
+			ray.ray.origin.setFromMatrixPosition( c.matrixWorld );
+			ray.ray.direction.set( 0, 0, -1 ).applyMatrix4( m4 );
+			const hit = ray.intersectObjects( botones, false )[ 0 ];
+			elegido = hit?.object ?? null;
+			botones.forEach( ( b ) => pintar( b, b === elegido ) );
+			rayo.scale.z = hit ? hit.distance : 3;
+		},
+		seleccionar() { if ( elegido ) { ctx.vibrar?.( 'right', 0.4, 40 ); elegido.userData.accion(); } }
+	};
 }

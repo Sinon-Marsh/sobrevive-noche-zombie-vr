@@ -200,13 +200,20 @@ export function crearEscenario( ctx ) {
 
 	ctx.colliders = colliders;
 
+	// aplica los ajustes de video que dependen del escenario
+	ctx.aplicarEscenario = () => {
+		const a = ctx.ajustes;
+		luzLuna.castShadow = a.sombras;
+		luciernagas.visible = a.luciernagas;
+	};
+
 	// El cielo y la luna siguen al jugador para que parezcan infinitamente lejanos
 	const dirLuna = new THREE.Vector3( -0.45, 0.55, -0.7 ).normalize();
 	ctx.actualizarEscenario = ( dt = 0.016, t = 0 ) => {
 		const pos = ctx.player.position;
 
 		// niebla que "respira" (sube y baja)
-		scene.fog.density = 0.03 + Math.sin( t * 0.17 ) * 0.008 + Math.sin( t * 0.61 ) * 0.003;
+		scene.fog.density = ( 0.03 + Math.sin( t * 0.17 ) * 0.008 + Math.sin( t * 0.61 ) * 0.003 ) * ( ctx.ajustes?.niebla ?? 1 );
 
 		// faroles que parpadean de vez en cuando
 		faroles.forEach( ( f ) => {
@@ -229,7 +236,7 @@ export function crearEscenario( ctx ) {
 		luciernagas.material.opacity = 0.6 + Math.sin( t * 3 ) * 0.3;
 
 		// relámpagos con trueno
-		proxRelampago -= dt;
+		if ( ctx.ajustes?.relampagos !== false ) proxRelampago -= dt;
 		if ( proxRelampago <= 0 ) {
 			proxRelampago = 10 + Math.random() * 15; destello = 0.55;
 			const retraso = 300 + Math.random() * 1200;

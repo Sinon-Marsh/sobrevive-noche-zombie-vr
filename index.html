@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sobrevive a la Noche del Zombie · VR</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧟</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Three.js + addons (ESM) -->
   <script type="importmap">
   {
     "imports": {
@@ -19,70 +19,243 @@
 </head>
 <body>
   <canvas id="scene"></canvas>
+  <div class="fondo-glow"></div>
 
-  <!-- ===================== PORTADA DEL JUEGO ===================== -->
-  <section id="portada">
-    <div class="tarjeta">
-      <p class="etiqueta">Graficación · 3.7 Desarrollo de escenarios VR · Meta Quest 3</p>
-      <h1>Sobrevive a la Noche del Zombie</h1>
-      <p class="historia">Despiertas en el jardín de una mansión abandonada. Es de noche y los <b>zombies bailarines</b> rondan entre las lápidas.
-        Recoge las <b>8 calabazas</b> de cada nivel antes de que te atrapen y sobrevive a los <b>3 niveles</b>. ¡Solo tienes <b>3 vidas</b>!</p>
-
-      <div class="columnas">
-        <div>
-          <h2>🥽 Controles en VR</h2>
-          <ul>
-            <li><kbd>Stick izquierdo</kbd> Caminar</li>
-            <li><kbd>Stick derecho</kbd> Girar 30°</li>
-            <li><kbd>Gatillo derecho</kbd> Mantener y soltar para teletransportarte</li>
-            <li><kbd>Gatillo izquierdo</kbd> Encender / apagar linterna</li>
-            <li><kbd>Grip</kbd> Agarrar una calabaza cercana</li>
-            <li><kbd>A</kbd> Reiniciar la partida</li>
-          </ul>
-        </div>
-        <div>
-          <h2>🖱️ Controles en PC</h2>
-          <ul>
-            <li><kbd>W A S D</kbd> Caminar · <kbd>Shift</kbd> Correr</li>
-            <li><kbd>Ratón</kbd> Mirar alrededor</li>
-            <li><kbd>F</kbd> Linterna · <kbd>E</kbd> Recoger</li>
-            <li><kbd>R</kbd> Reiniciar · <kbd>Esc</kbd> Pausa</li>
-          </ul>
-          <h2>📜 Reglas</h2>
-          <ul>
-            <li>Toca una calabaza para recogerla 🎃</li>
-            <li>Si un zombie te alcanza pierdes una vida ❤️</li>
-            <li>La calabaza dorada te da una vida extra ✨</li>
-            <li>Cada nivel trae más zombies, más rápidos, y salen de sus tumbas 😱</li>
-            <li>Si escuchas latidos… ¡hay un zombie cerca! 💓</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="botones" id="botones">
-        <button id="btnPC">🖱️ Jugar en PC</button>
-        <!-- aquí se inserta el botón "ENTER VR" de three.js -->
-      </div>
-      <p id="cargando">Cargando zombies…</p>
-      <p id="record"></p>
-
-      <footer>
-        <span>Integrantes:</span>
-        Gamaliel Jiménez Oropeza (23200855) · Avryl Chavez Tavera (24200776) · Eduardo Martínez Trujillo (23200864)
-      </footer>
+  <!-- ===================== PANTALLA DE CARGA ===================== -->
+  <section id="carga" class="pantalla visible">
+    <div class="glass carga-caja">
+      <div class="logo-anim">🧟</div>
+      <h2>Sobrevive a la Noche del Zombie</h2>
+      <p id="cargaTexto">Despertando a los zombies…</p>
+      <div class="barra"><i id="cargaBarra"></i></div>
+      <small id="cargaPct">0%</small>
     </div>
   </section>
 
-  <!-- ===================== HUD (PC) ===================== -->
+  <!-- ===================== MENÚ PRINCIPAL ===================== -->
+  <section id="menu" class="pantalla">
+    <aside class="glass lateral">
+      <div class="marca">
+        <span class="marca-ico">🧟</span>
+        <div><b>Noche Zombie</b><small>VR · Meta Quest 3</small></div>
+      </div>
+      <nav id="nav">
+        <button data-sec="inicio" class="activo"><span>⌂</span>Inicio</button>
+        <button data-accion="ajustes"><span>⚙</span>Ajustes</button>
+        <button data-sec="ayuda"><span>?</span>Cómo jugar</button>
+        <button data-sec="records"><span>🏆</span>Récords</button>
+        <button data-sec="creditos"><span>✦</span>Créditos</button>
+      </nav>
+      <div class="glass mini promo">
+        <b>¿Tienes Meta Quest 3?</b>
+        <p>Abre esta página en el navegador de las gafas y pulsa <em>Entrar a VR</em>.</p>
+        
+      </div>
+    </aside>
+
+    <main class="contenido">
+      <!-- INICIO -->
+      <div class="seccion activa" id="sec-inicio">
+        <header class="cabecera">
+          <div>
+            <h1>Bienvenido, sobreviviente <span class="ola">👋</span></h1>
+            <p class="sub">Graficación · 3.7 Desarrollo de escenarios VR</p>
+          </div>
+          <div class="chip-estado"><i class="punto"></i> <span id="estadoCarga">Listo para jugar</span></div>
+        </header>
+
+        <div class="grid-inicio">
+          <div class="glass tarjeta hero">
+            <div class="blob"></div>
+            <span class="etiqueta">Nueva partida</span>
+            <h2 class="titulo-juego">Sobrevive a la<br><em>Noche del Zombie</em></h2>
+            <p>Recoge las calabazas encendidas en el jardín de la mansión abandonada y supera los <b>3 niveles</b> sin que los zombies bailarines te atrapen.</p>
+            <div class="selector" id="selDificultad">
+              <button data-v="facil">Fácil</button>
+              <button data-v="normal">Normal</button>
+              <button data-v="pesadilla">Pesadilla</button>
+            </div>
+            <div class="acciones">
+              <button class="btn primario" id="btnJugar">▶ Jugar en PC</button>
+              <div id="vrSlotHero"></div>
+            </div>
+          </div>
+
+          <div class="glass tarjeta stat"><span>Partidas jugadas</span><b id="stPartidas">0</b><small id="stVictorias">0 victorias</small></div>
+          <div class="glass tarjeta stat"><span>Mejor puntuación</span><b id="stMejor">—</b><small id="stMejorTiempo">Aún sin récord</small></div>
+          <div class="glass tarjeta stat"><span>Calabazas recogidas</span><b id="stCalabazas">0</b><small>en total</small></div>
+          <div class="glass tarjeta stat"><span>Zombies esquivados</span><b id="stEsquives">0</b><small>los hiciste tropezar</small></div>
+          <div class="glass tarjeta consejo">
+            <div class="tarjeta-cab"><b>💡 Consejo de supervivencia</b><button class="mini-btn" id="btnConsejo">Otro →</button></div>
+            <p id="txtConsejo"></p>
+          </div>
+
+          <div class="glass tarjeta equipo">
+            <div class="tarjeta-cab"><b>Equipo</b><span>3 integrantes</span></div>
+            <ul>
+              <li><i style="--c:#7c5cff">G</i><div><b>Gamaliel Jiménez Oropeza</b><small>23200855 · Controles VR y Git</small></div></li>
+              <li><i style="--c:#38bdf8">A</i><div><b>Avryl Chavez Tavera</b><small>24200776 · Escenario e interfaz</small></div></li>
+              <li><i style="--c:#8be04e">E</i><div><b>Eduardo Martínez Trujillo</b><small>23200864 · Juego y sonido</small></div></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- CÓMO JUGAR -->
+      <div class="seccion" id="sec-ayuda">
+        <header class="cabecera"><div><h1>Cómo jugar</h1><p class="sub">Controles y reglas</p></div></header>
+        <div class="grid-3">
+          <div class="glass tarjeta">
+            <div class="tarjeta-cab"><b>🥽 Meta Quest 3</b></div>
+            <ul class="teclas">
+              <li><kbd>Stick izq.</kbd>Caminar</li>
+              <li><kbd>Stick der.</kbd>Girar (ajustable)</li>
+              <li><kbd>Gatillo der.</kbd>Teletransporte</li>
+              <li><kbd>Gatillo izq.</kbd>Linterna</li>
+              <li><kbd>Grip</kbd>Agarrar calabaza</li>
+              <li><kbd>B / Y</kbd>Pausa</li>
+              <li><kbd>A</kbd>Reiniciar al terminar</li>
+            </ul>
+          </div>
+          <div class="glass tarjeta">
+            <div class="tarjeta-cab"><b>🖱️ Computadora</b></div>
+            <ul class="teclas">
+              <li><kbd>W A S D</kbd>Caminar</li>
+              <li><kbd>Shift</kbd>Correr</li>
+              <li><kbd>Ratón</kbd>Mirar</li>
+              <li><kbd>F</kbd>Linterna</li>
+              <li><kbd>E</kbd>Recoger</li>
+              <li><kbd>Esc / P</kbd>Pausa</li>
+              <li><kbd>R</kbd>Reiniciar</li>
+            </ul>
+          </div>
+          <div class="glass tarjeta">
+            <div class="tarjeta-cab"><b>📜 Reglas</b></div>
+            <ul class="reglas">
+              <li>🎃 Toca las calabazas para recogerlas. +100 pts</li>
+              <li>✨ La calabaza dorada da una vida extra. +250 pts</li>
+              <li>💫 Pasa al lado de un zombie para que tropiece. +50 pts</li>
+              <li>🧟 Si te toca de frente pierdes una vida.</li>
+              <li>🌙 Cada nivel trae más zombies, más rápidos.</li>
+              <li>💓 Si escuchas latidos… hay uno cerca.</li>
+              <li>⏱️ Termina rápido para ganar bonus de tiempo.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- RÉCORDS -->
+      <div class="seccion" id="sec-records">
+        <header class="cabecera"><div><h1>Récords</h1><p class="sub">Mejores partidas en este dispositivo</p></div></header>
+        <div class="glass tarjeta">
+          <table class="tabla" id="tablaRecords">
+            <thead><tr><th>#</th><th>Puntuación</th><th>Resultado</th><th>Nivel</th><th>Tiempo</th><th>Dificultad</th><th>Fecha</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <button class="btn fantasma" id="btnBorrarRecords">Borrar récords</button>
+        </div>
+      </div>
+
+      <!-- CRÉDITOS -->
+      <div class="seccion" id="sec-creditos">
+        <header class="cabecera"><div><h1>Créditos</h1><p class="sub">Instituto Tecnológico de Pachuca · Graficación</p></div></header>
+        <div class="grid-3">
+          <div class="glass tarjeta"><div class="tarjeta-cab"><b>Gamaliel Jiménez Oropeza</b></div><p>23200855</p><p class="tenue">Base del proyecto, cámara en 1ª persona, controles de Meta Quest 3 (caminar, giro, teletransporte, linterna, agarrar), modo PC, Git y GitHub Pages.</p></div>
+          <div class="glass tarjeta"><div class="tarjeta-cab"><b>Avryl Chavez Tavera</b></div><p>24200776</p><p class="tenue">Escenario: cielo nocturno, luna, piso, límites, reja, mansión, iluminación, niebla, relámpagos y la interfaz del menú.</p></div>
+          <div class="glass tarjeta"><div class="tarjeta-cab"><b>Eduardo Martínez Trujillo</b></div><p>23200864</p><p class="tenue">Reglas del juego, zombies (Mixamo), calabazas, niveles, puntuación, música, efectos de sonido y marcador.</p></div>
+        </div>
+        <div class="glass tarjeta">
+          <div class="tarjeta-cab"><b>Recursos</b></div>
+          <p class="tenue">three.js r170 · Personaje y animaciones: Mixamo · HDR y texturas: Poly Haven · Basado en el ejemplo <em>threejs-vr-look</em> del M.T.I. Luis Alejandro Santana Valadez.</p>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ===================== AJUSTES (modal) ===================== -->
+  <section id="ajustes" class="pantalla modal">
+    <div class="glass ventana">
+      <div class="ventana-cab">
+        <div><h2>Ajustes</h2><p class="sub">Los cambios se aplican al momento y se guardan</p></div>
+        <button class="cerrar" data-cerrar="ajustes">✕</button>
+      </div>
+      <div class="tabs" id="tabsAjustes">
+        <button data-tab="juego" class="activo">🎮 Juego</button>
+        <button data-tab="video">🖥️ Video</button>
+        <button data-tab="audio">🔊 Audio</button>
+        <button data-tab="controles">🕹️ Controles</button>
+      </div>
+      <div id="panelAjustes" class="panel-ajustes"></div>
+      <div class="ventana-pie">
+        <button class="btn fantasma" id="btnRestablecer">Restablecer</button>
+        <button class="btn primario" data-cerrar="ajustes">Listo</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PAUSA ===================== -->
+  <section id="pausa" class="pantalla modal">
+    <div class="glass ventana pequena">
+      <div class="logo-anim chico">⏸</div>
+      <h2>Pausa</h2>
+      <p class="sub" id="pausaInfo">Nivel 1 · 0/8 calabazas</p>
+      <div class="lista-botones">
+        <button class="btn primario" id="btnContinuar">▶ Continuar</button>
+        <button class="btn" id="btnPausaAjustes">⚙ Ajustes</button>
+        <button class="btn" id="btnReiniciar">↻ Reiniciar partida</button>
+        <button class="btn fantasma" id="btnMenu">⌂ Menú principal</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FIN DE PARTIDA ===================== -->
+  <section id="fin" class="pantalla modal">
+    <div class="glass ventana">
+      <div class="fin-cab">
+        <div class="logo-anim" id="finIcono">🏆</div>
+        <div><h2 id="finTitulo">¡Sobreviviste!</h2><p class="sub" id="finSub">Superaste los 3 niveles</p></div>
+      </div>
+      <div class="grid-fin">
+        <div class="glass mini"><span>Puntuación</span><b id="finPuntos">0</b></div>
+        <div class="glass mini"><span>Tiempo</span><b id="finTiempo">0:00</b></div>
+        <div class="glass mini"><span>Nivel</span><b id="finNivel">1</b></div>
+        <div class="glass mini"><span>Calabazas</span><b id="finCalabazas">0</b></div>
+        <div class="glass mini"><span>Esquives</span><b id="finEsquives">0</b></div>
+        <div class="glass mini"><span>Vidas perdidas</span><b id="finVidas">0</b></div>
+      </div>
+      <p class="nuevo-record" id="finRecord">✨ ¡Nuevo récord personal! ✨</p>
+      <div class="ventana-pie">
+        <button class="btn fantasma" id="btnFinMenu">⌂ Menú principal</button>
+        <button class="btn primario" id="btnFinOtra">↻ Jugar otra vez</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HUD ===================== -->
   <div id="hud">
-    <div class="badge">🌙 Nivel <b id="hudNivel">1 / 3</b></div>
-    <div class="badge">🎃 <b id="hudCalabazas">0 / 8</b></div>
-    <div class="badge">❤️ <b id="hudVidas">3</b></div>
-    <div class="badge">⏱️ <b id="hudTiempo">0:00</b></div>
+    <div class="hud-izq">
+      <button class="glass hud-btn" id="btnPausa" title="Pausa (Esc / P)">⏸</button>
+      <div class="glass hud-card">
+        <span>Nivel</span><b id="hudNivel">1 / 3</b>
+      </div>
+      <div class="glass hud-card">
+        <span>Puntos</span><b id="hudPuntos">0</b>
+      </div>
+    </div>
+    <div class="hud-der">
+      <div class="glass hud-card ancho">
+        <span>Calabazas</span><b id="hudCalabazas">0 / 8</b>
+        <div class="progreso"><i id="hudProgreso"></i></div>
+      </div>
+      <div class="glass hud-card"><span>Vidas</span><b id="hudVidas" class="corazones">❤❤❤</b></div>
+      <div class="glass hud-card"><span>Tiempo</span><b id="hudTiempo">0:00</b></div>
+    </div>
+    <div id="toasts"></div>
+    <div class="glass radar-caja" id="radarCaja"><canvas id="radar" width="180" height="180"></canvas><small>Radar</small></div>
+    <div id="fps" class="glass">60 FPS</div>
   </div>
   <div id="mira">+</div>
   <div id="flash"></div>
-  <div id="mensaje"></div>
 
   <script type="module" src="main.js"></script>
 </body>

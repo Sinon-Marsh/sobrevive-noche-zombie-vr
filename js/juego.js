@@ -6,11 +6,14 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { DIFICULTADES } from './ajustes.js';
+import { formato } from './interfaz.js';
 
-const N_CALABAZAS = 8, VIDAS = 3, VIDAS_MAX = 5, NIVELES = 3;
-const ZOMBIES_POR_NIVEL = [ 4, 6, 8 ], VEL_POR_NIVEL = [ 1, 1.18, 1.36 ];
+const MAX_CALABAZAS = 10, VIDAS_MAX = 6, NIVELES = 3;
+const VEL_POR_NIVEL = [ 1, 1.18, 1.36 ];
 const OLEADA_CADA = 30, OLEADA_MAX = 3;           // aparece un zombie nuevo cada 30 s (máx. 3 por nivel)
-const RADIO_VISION = 9, RADIO_ATAQUE = 0.9;
+const RADIO_ATAQUE = 0.9;
+const PUNTOS = { calabaza: 100, dorada: 250, esquive: 50, nivel: 500 };
 const VEL_DEAMBULAR = 0.55, VEL_PERSEGUIR = 1.25;
 const GIRO_ZOMBIE = 1.9;          // rad/s: los zombies giran lento, por eso se les puede esquivar
 const ANGULO_ESQUIVE = 1.1;       // si quedas a más de ~63° de su frente estando cerca → se tropiezan
@@ -35,25 +38,39 @@ export function crearJuego( ctx ) {
 	const latido = new THREE.Audio( listener );        // latido del corazón cuando un zombie está cerca
 	cargarAudio.load( 'assets/audio/sfx_latido.mp3', ( b ) => { latido.setBuffer( b ); latido.setLoop( true ); latido.setVolume( 0 ); } );
 
+	const A = ctx.ajustes;
+	const volEf = () => A.volEfectos * A.volGeneral;
 	function sonar( nombre, volumen = 0.9, objeto = null ) {
-		if ( ! buffers[ nombre ] ) return;
+		if ( ! buffers[ nombre ] || volEf() <= 0 ) return;
 		const s = objeto ? new THREE.PositionalAudio( listener ) : new THREE.Audio( listener );
-		s.setBuffer( buffers[ nombre ] ); s.setVolume( volumen );
+		s.setBuffer( buffers[ nombre ] ); s.setVolume( volumen * volEf() );
 		if ( objeto ) { s.setRefDistance( 2 ); objeto.add( s ); s.onEnded = () => { s.isPlaying = false; objeto.remove( s ); }; }
 		s.play();
 	}
 	function iniciarAudio() {
 		if ( listener.context.state === 'suspended' ) listener.context.resume();
-		if ( musica.buffer && ! musica.isPlaying ) { musica.setLoop( true ); musica.setVolume( 0.35 ); musica.play(); }
-		if ( viento.buffer && ! viento.isPlaying ) { viento.setLoop( true ); viento.setVolume( 0.18 ); viento.play(); }
+		if ( musica.buffer && ! musica.isPlaying ) { musica.setLoop( true ); musica.play(); }
+		if ( viento.buffer && ! viento.isPlaying ) { viento.setLoop( true ); viento.play(); }
 		if ( latido.buffer && ! latido.isPlaying ) latido.play();
+		aplicarAudio();
 	}
+	function aplicarAudio() {
+		musica.setVolume( 0.6 * A.volMusica * A.volGeneral );
+		viento.setVolume( 0.45 * A.volAmbiente * A.volGeneral );
+	}
+	ctx.aplicarAudio = aplicarAudio;
+	// sonido corto para los botones del menú
+	ctx.sonidoUI = () => {
+		if ( listener.context.state === 'suspended' ) listener.context.resume();
+		if ( ! buffers.recoger || volEf() <= 0 || ctx.estado === 'jugando' ) return;
+		const s = new THREE.Audio( listener ); s.setBuffer( buffers.recoger ); s.setVolume( 0.18 * volEf() ); s.setPlaybackRate( 1.6 ); s.play();
+	};
 	ctx.sonar = sonar;                                  // lo usa el escenario para el trueno
 
 	// =================== CALABAZAS ===================
 	const calabazas = [];
 	const caraTex = caraCalabaza();
-	for ( let i = 0; i < N_CALABAZAS; i ++ ) {
+	for ( let i = 0; i < MAX_CALABAZAS; i ++ ) {
 		const mat = new THREE.MeshStandardMaterial( { color: 0xff6a00, roughness: 0.55, emissive: 0xffa040, emissiveIntensity: 0.9, emissiveMap: caraTex } );
 		const g = new THREE.Group();
 		const cuerpo = new THREE.Mesh( new THREE.SphereGeometry( 0.3, 24, 16 ).scale( 1.2, 0.95, 1.1 ), mat );
@@ -90,7 +107,7 @@ export function crearJuego( ctx ) {
 		return clip;
 	}
 
-	console.log( 'juego.js v3 · esquive con tropiezo activo' );
+	console.log( 'juego.js v4 · menú, ajustes y pausa' );
 	fbx.load( 'assets/models/fbx/Dancing.fbx', ( modelo ) => {
 		modelo.traverse( ( c ) => {
 			if ( c.isMesh ) {
@@ -139,59 +156,50 @@ export function crearJuego( ctx ) {
 		u.actual = a;
 	}
 
-	// =================== MARCADOR ===================
-	const hud = { cal: document.getElementById( 'hudCalabazas' ), vid: document.getElementById( 'hudVidas' ), tie: document.getElementById( 'hudTiempo' ), niv: document.getElementById( 'hudNivel' ) };
-	const leerRecord = () => { try { return parseFloat( localStorage.getItem( 'zombieRecord' ) ) || 0; } catch { return 0; } };
-	const guardarRecord = ( v ) => { try { localStorage.setItem( 'zombieRecord', String( v ) ); } catch {} };
-	const txtRecord = document.getElementById( 'record' );
-	const mostrarRecord = () => { const r = leerRecord(); if ( txtRecord ) txtRecord.textContent = r ? `🏆 Mejor tiempo: ${formato( r )}` : '🏆 Aún no hay récord: ¡sé el primero en sobrevivir!'; };
-	mostrarRecord();
-	let avisoHasta = 0;
-	const msg = document.getElementById( 'mensaje' ), flash = document.getElementById( 'flash' );
-	// panel flotante dentro del VR (pegado a la vista)
-	const lienzo = document.createElement( 'canvas' ); lienzo.width = 512; lienzo.height = 160;
+	// =================== MARCADOR (PC: HTML · VR: panel flotante) ===================
+	const flash = document.getElementById( 'flash' );
+	const lienzo = document.createElement( 'canvas' ); lienzo.width = 640; lienzo.height = 200;
 	const texPanel = new THREE.CanvasTexture( lienzo ); texPanel.colorSpace = THREE.SRGBColorSpace;
-	const panel = new THREE.Mesh( new THREE.PlaneGeometry( 0.48, 0.15 ), new THREE.MeshBasicMaterial( { map: texPanel, transparent: true, depthTest: false, fog: false } ) );
-	panel.position.set( 0, -0.32, -0.9 ); panel.rotation.x = -0.35; panel.renderOrder = 10; panel.visible = false;
+	const panel = new THREE.Mesh( new THREE.PlaneGeometry( 0.5, 0.156 ), new THREE.MeshBasicMaterial( { map: texPanel, transparent: true, depthTest: false, fog: false } ) );
+	panel.position.set( 0, -0.3, -0.9 ); panel.rotation.x = -0.35; panel.renderOrder = 10; panel.visible = false;
 	camera.add( panel );
-	let textoGrande = '';
+	let avisoTexto = '', avisoHasta = 0, textoGrande = '', subGrande = '';
 	function dibujarPanel() {
-		const g = lienzo.getContext( '2d' );
-		g.clearRect( 0, 0, 512, 160 );
-		g.fillStyle = 'rgba(8,12,8,0.75)'; g.strokeStyle = '#8be04e'; g.lineWidth = 4;
-		g.beginPath(); g.roundRect( 4, 4, 504, 152, 22 ); g.fill(); g.stroke();
-		g.fillStyle = '#e8f5e0'; g.font = 'bold 40px Arial'; g.textAlign = 'center';
-		if ( textoGrande ) { g.fillStyle = '#8be04e'; g.fillText( textoGrande, 256, 70 ); g.font = '26px Arial'; g.fillStyle = '#e8f5e0'; g.fillText( 'Botón A para jugar otra vez', 256, 120 ); }
-		else {
-			g.font = 'bold 34px Arial';
-			g.fillText( `Nivel ${J.nivel}   🎃 ${J.recogidas}/${N_CALABAZAS}   ❤️ ${J.vidas}`, 256, 70 );
-			g.font = '28px Arial'; g.fillStyle = '#8be04e';
-			g.fillText( performance.now() < avisoHasta ? avisoTexto : `⏱ ${formato( J.tiempo )}`, 256, 122 );
+		const g = lienzo.getContext( '2d' ), W = 640, H = 200;
+		g.clearRect( 0, 0, W, H );
+		const grad = g.createLinearGradient( 0, 0, W, H ); grad.addColorStop( 0, 'rgba(40,30,90,0.82)' ); grad.addColorStop( 1, 'rgba(14,30,70,0.82)' );
+		g.fillStyle = grad; g.strokeStyle = 'rgba(167,139,250,0.75)'; g.lineWidth = 3;
+		g.beginPath(); g.roundRect( 4, 4, W - 8, H - 8, 30 ); g.fill(); g.stroke();
+		g.textAlign = 'center';
+		if ( textoGrande ) {
+			g.fillStyle = '#ffffff'; g.font = 'bold 46px Arial'; g.fillText( textoGrande, W / 2, 86 );
+			g.fillStyle = '#c4b5fd'; g.font = '26px Arial'; g.fillText( subGrande, W / 2, 140 );
+		} else {
+			const cols = [ [ 'NIVEL', `${J.nivel}/${NIVELES}` ], [ 'CALABAZAS', `${J.recogidas}/${J.meta}` ], [ 'VIDAS', '❤'.repeat( Math.max( 0, J.vidas ) ) ], [ 'PUNTOS', J.puntos ] ];
+			cols.forEach( ( [ t, v ], i ) => {
+				const x = 85 + i * 157;
+				g.fillStyle = '#9aa3c7'; g.font = '20px Arial'; g.fillText( t, x, 52 );
+				g.fillStyle = t === 'VIDAS' ? '#ff4d6d' : '#ffffff'; g.font = 'bold 36px Arial'; g.fillText( v, x, 96 );
+			} );
+			g.fillStyle = '#7dd3fc'; g.font = '26px Arial';
+			g.fillText( performance.now() < avisoHasta ? avisoTexto : `⏱ ${formato( J.tiempo )}`, W / 2, 160 );
 		}
 		texPanel.needsUpdate = true;
 	}
 	function actualizarMarcador() {
-		hud.cal.textContent = `${J.recogidas} / ${N_CALABAZAS}`;
-		hud.vid.textContent = String( J.vidas );
-		hud.tie.textContent = formato( J.tiempo );
-		if ( hud.niv ) hud.niv.textContent = `${J.nivel} / ${NIVELES}`;
+		ctx.ui?.hud( { nivel: J.nivel, niveles: NIVELES, puntos: J.puntos, recogidas: J.recogidas, meta: J.meta, vidas: J.vidas, tiempo: J.tiempo } );
 		dibujarPanel();
 	}
-	let avisoTexto = '';
-	function aviso( texto, ms = 2500 ) {           // mensaje corto (PC y VR) sin detener el juego
+	function aviso( texto, color, ms = 2600 ) {      // mensaje corto (PC y VR) sin detener el juego
+		if ( ! A.avisos ) return;
 		avisoTexto = texto; avisoHasta = performance.now() + ms;
-		msg.innerHTML = texto; msg.style.display = 'block';
-		setTimeout( () => { if ( performance.now() >= avisoHasta && ! J.fin ) msg.style.display = 'none'; }, ms + 50 );
-		dibujarPanel();
+		ctx.ui?.toast( texto, color ); dibujarPanel();
 	}
-	function mostrarMensaje( titulo, sub ) {
-		textoGrande = titulo;
-		msg.innerHTML = `${titulo}<small>${sub}</small>`; msg.style.display = titulo ? 'block' : 'none';
-		dibujarPanel();
-	}
+	function sumar( p ) { J.puntos += p; actualizarMarcador(); }
 
 	// =================== REGLAS ===================
-	const J = { activo: false, vidas: VIDAS, recogidas: 0, tiempo: 0, invulnerable: 0, fin: false, nivel: 1, oleada: 0, extras: 0, doradaEn: 0 };
+	const J = { activo: false, vidas: 3, recogidas: 0, tiempo: 0, invulnerable: 0, fin: false, nivel: 1, oleada: 0, extras: 0, doradaEn: 0,
+		meta: 8, puntos: 0, esquives: 0, totalCalabazas: 0, vidasPerdidas: 0, dif: DIFICULTADES.normal, clave: 'normal' };
 
 	function lugarLibre( rMin, rMax ) {
 		for ( let n = 0; n < 60; n ++ ) {
@@ -214,41 +222,50 @@ export function crearJuego( ctx ) {
 		J.recogidas = 0; J.oleada = 0; J.extras = 0; J.invulnerable = 2;
 		J.doradaEn = 15 + Math.random() * 15;
 		dorada.visible = false;
-		calabazas.forEach( ( c ) => { c.visible = true; c.userData.recogida = false; c.position.copy( lugarLibre( 5, ctx.LIMITE - 3 ) ); } );
+		calabazas.forEach( ( c, i ) => {
+			const usar = i < J.meta;
+			c.visible = usar; c.userData.recogida = ! usar;
+			if ( usar ) c.position.copy( lugarLibre( 5, ctx.LIMITE - 3 ) );
+		} );
 		zombies.forEach( ( z ) => scene.remove( z ) ); zombies.length = 0;
 		camera.getWorldPosition( cab );
-		for ( let i = 0; i < ZOMBIES_POR_NIVEL[ J.nivel - 1 ]; i ++ ) agregarZombie();
+		for ( let i = 0; i < J.dif.zombies[ J.nivel - 1 ]; i ++ ) agregarZombie();
 		actualizarMarcador();
 	}
 	function reiniciar() {
-		Object.assign( J, { activo: true, vidas: VIDAS, tiempo: 0, fin: false, nivel: 1 } );
-		mostrarMensaje( '', '' );
-		player.position.set( 0, 0, 0 );
+		J.clave = DIFICULTADES[ A.dificultad ] ? A.dificultad : 'normal';
+		J.dif = DIFICULTADES[ J.clave ];
+		Object.assign( J, { activo: true, vidas: J.dif.vidas, tiempo: 0, fin: false, nivel: 1, meta: J.dif.calabazas,
+			puntos: 0, esquives: 0, totalCalabazas: 0, vidasPerdidas: 0 } );
+		textoGrande = '';
+		player.position.set( 0, 0, 0 ); player.rotation.set( 0, 0, 0 );
 		prepararNivel();
 		iniciarAudio();
-		aviso( 'Nivel 1 · ¡Recoge las calabazas!' );
+		aviso( `Nivel 1 · Dificultad ${J.dif.nombre} · ¡Recoge las calabazas!`, '#a78bfa' );
 	}
 	function siguienteNivel() {
+		sumar( PUNTOS.nivel * J.nivel );
 		J.nivel ++;
 		sonar( 'nivel', 1 ); ctx.vibrar?.( 'right', 0.6, 120 );
 		prepararNivel();
-		aviso( `¡Nivel ${J.nivel}! · Más zombies y más rápidos 😱`, 3000 );
+		aviso( `🌙 ¡Nivel ${J.nivel}! · Más zombies y más rápidos`, '#38bdf8', 3200 );
 	}
 
 	function recoger( c ) {
 		if ( c.userData.recogida || ! J.activo ) return;
-		c.userData.recogida = true; c.visible = false; J.recogidas ++;
+		c.userData.recogida = true; c.visible = false; J.recogidas ++; J.totalCalabazas ++;
 		sonar( 'recoger', 0.9 ); ctx.vibrar?.( 'right', 0.4, 60 ); ctx.vibrar?.( 'left', 0.4, 60 );
 		particulas( c.position.clone().setY( 0.4 ) );
-		actualizarMarcador();
-		if ( J.recogidas >= N_CALABAZAS ) { if ( J.nivel < NIVELES ) siguienteNivel(); else terminar( true ); }
+		sumar( PUNTOS.calabaza );
+		if ( J.recogidas >= J.meta ) { if ( J.nivel < NIVELES ) siguienteNivel(); else terminar( true ); }
 	}
 	function recogerDorada() {
 		if ( ! dorada.visible || ! J.activo ) return;
 		dorada.visible = false; J.vidas = Math.min( VIDAS_MAX, J.vidas + 1 );
 		sonar( 'vida', 1 ); ctx.vibrar?.( 'left', 0.7, 120 ); ctx.vibrar?.( 'right', 0.7, 120 );
-		particulas( dorada.position.clone().setY( 0.5 ) );
-		aviso( '✨ ¡Calabaza dorada! +1 vida' ); actualizarMarcador();
+		particulas( dorada.position.clone().setY( 0.5 ), 0xffd34d );
+		sumar( PUNTOS.dorada );
+		aviso( '✨ ¡Calabaza dorada! +1 vida', '#ffc94d' );
 	}
 	function agarrar( origen ) {          // grip del mando (o tecla E en PC)
 		const p = new THREE.Vector3(); origen.getWorldPosition( p );
@@ -258,7 +275,8 @@ export function crearJuego( ctx ) {
 	}
 	function herir( z ) {
 		if ( J.invulnerable > 0 || ! J.activo ) return;
-		J.vidas --; J.invulnerable = 2.2;
+		J.vidas --; J.vidasPerdidas ++; J.invulnerable = 2.2;
+		ctx.sacudir?.( 0.35 );
 		sonar( 'dano', 1 ); sonar( 'grunido', 1, z );
 		ctx.vibrar?.( 'left', 1, 250 ); ctx.vibrar?.( 'right', 1, 250 );
 		flash.style.opacity = 1; setTimeout( () => { flash.style.opacity = 0; }, 350 );
@@ -267,28 +285,31 @@ export function crearJuego( ctx ) {
 		const atras = z.position.clone().sub( cab ).setY( 0 ).normalize().multiplyScalar( 3 );
 		z.position.add( atras ); ctx.limitar( z.position ); z.userData.espera = 1.5;
 		actualizarMarcador();
-		if ( J.vidas <= 0 ) terminar( false );
+		if ( J.vidas > 0 ) aviso( `💔 ¡Te mordieron! Quedan ${J.vidas} ${J.vidas === 1 ? 'vida' : 'vidas'}`, '#ff4d6d' );
+		else terminar( false );
 	}
 	function terminar( gano ) {
 		J.activo = false; J.fin = true;
 		sonar( gano ? 'victoria' : 'derrota', 1 );
 		latido.setVolume( 0 );
-		let nuevoRecord = false;
-		if ( gano ) { const r = leerRecord(); if ( ! r || J.tiempo < r ) { guardarRecord( J.tiempo ); nuevoRecord = true; } mostrarRecord(); }
+		if ( gano ) J.puntos += PUNTOS.nivel * NIVELES + Math.max( 0, Math.round( ( 600 - J.tiempo ) * 5 ) ) + J.vidas * 300;
 		// si ganas, los zombies caen; si pierdes, ¡celebran bailando!
 		zombies.forEach( ( z ) => animar( z, gano ? 'morir' : 'bailar' ) );
-		mostrarMensaje( gano ? ( nuevoRecord ? '¡Nuevo récord! 🏆' : '¡Sobreviviste! 🎃' ) : '¡Te atraparon! 🧟',
-			gano ? `Superaste los ${NIVELES} niveles en ${formato( J.tiempo )} · Botón A / R para jugar otra vez`
-				: `Llegaste al nivel ${J.nivel} · Botón A / R para intentarlo de nuevo` );
+		const record = ctx.ui?.fin( { gano, puntos: J.puntos, tiempo: J.tiempo, nivel: J.nivel, niveles: NIVELES, calabazas: J.totalCalabazas,
+			esquives: J.esquives, vidasPerdidas: J.vidasPerdidas, dificultad: J.clave } );
+		textoGrande = gano ? ( record ? '¡Nuevo récord! 🏆' : '¡Sobreviviste! 🎃' ) : '¡Te atraparon! 🧟';
+		subGrande = `${J.puntos.toLocaleString( 'es-MX' )} pts · Botón A para jugar otra vez`;
+		actualizarMarcador();
+		ctx.alTerminar?.( gano );
 	}
 
 	// =================== PARTÍCULAS ===================
 	const sistemas = [];
-	function particulas( pos ) {
+	function particulas( pos, color = 0xffa040 ) {
 		const N = 160, geo = new THREE.BufferGeometry(), p = new Float32Array( N * 3 ), v = [];
 		for ( let i = 0; i < N; i ++ ) { p.set( [ pos.x, pos.y, pos.z ], i * 3 ); v.push( new THREE.Vector3( Math.random() - 0.5, Math.random() * 0.9 + 0.2, Math.random() - 0.5 ).normalize().multiplyScalar( 2 + Math.random() * 3 ) ); }
 		geo.setAttribute( 'position', new THREE.BufferAttribute( p, 3 ) );
-		const pts = new THREE.Points( geo, new THREE.PointsMaterial( { color: 0xffa040, size: 0.07, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false } ) );
+		const pts = new THREE.Points( geo, new THREE.PointsMaterial( { color, size: 0.07, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false } ) );
 		pts.userData = { v, edad: 0 }; scene.add( pts ); sistemas.push( pts );
 	}
 
@@ -304,7 +325,7 @@ export function crearJuego( ctx ) {
 			if ( s.userData.edad > 1.4 ) { scene.remove( s ); s.geometry.dispose(); sistemas.splice( i, 1 ); }
 		}
 		zombies.forEach( ( z ) => z.userData.mixer?.update( dt ) );
-		if ( ! J.fin && avisoHasta && performance.now() > avisoHasta ) { avisoHasta = 0; msg.style.display = 'none'; dibujarPanel(); }
+		if ( avisoHasta && performance.now() > avisoHasta ) { avisoHasta = 0; dibujarPanel(); }
 		if ( ! J.activo ) return;
 
 		J.tiempo += dt; J.invulnerable = Math.max( 0, J.invulnerable - dt );
@@ -315,17 +336,17 @@ export function crearJuego( ctx ) {
 		if ( dorada.visible && Math.hypot( cab.x - dorada.position.x, cab.z - dorada.position.z ) < 0.8 ) recogerDorada();
 
 		// calabaza dorada (una por nivel)
-		if ( J.doradaEn > 0 ) { J.doradaEn -= dt; if ( J.doradaEn <= 0 ) { dorada.position.copy( lugarLibre( 6, ctx.LIMITE - 3 ) ); dorada.visible = true; aviso( '✨ Apareció una calabaza dorada' ); } }
+		if ( J.doradaEn > 0 ) { J.doradaEn -= dt; if ( J.doradaEn <= 0 ) { dorada.position.copy( lugarLibre( 6, ctx.LIMITE - 3 ) ); dorada.visible = true; aviso( '✨ Apareció una calabaza dorada', '#ffc94d' ); } }
 
 		// oleadas: un zombie nuevo sale de la tierra cada cierto tiempo
 		J.oleada += dt;
 		if ( J.oleada > OLEADA_CADA && J.extras < OLEADA_MAX ) {
 			J.oleada = 0; J.extras ++;
 			const z = agregarZombie( false ); z.userData.espera = 2; sonar( 'grunido', 1, z );
-			aviso( '🧟 ¡Un zombie salió de su tumba!' );
+			aviso( '🧟 ¡Un zombie salió de su tumba!', '#ff4d6d' );
 		}
 
-		const dificultad = ( 1 + J.recogidas * 0.05 ) * VEL_POR_NIVEL[ J.nivel - 1 ];
+		const dificultad = ( 1 + J.recogidas * 0.05 ) * VEL_POR_NIVEL[ J.nivel - 1 ] * J.dif.velZombie;
 		let masCerca = Infinity;
 		zombies.forEach( ( z ) => {
 			const u = z.userData;
@@ -338,7 +359,7 @@ export function crearJuego( ctx ) {
 				dir.copy( u.impulso );
 				vel = VEL_DEAMBULAR * 0.6 * Math.max( 0, u.tropiezo / 2 );   // sigue de frente por el impulso y frena
 				if ( u.tropiezo <= 0 ) { u.estado = 'deambular'; u.cerca = false; }
-			} else if ( dist < RADIO_VISION ) {                // ¡te vio! te persigue
+			} else if ( dist < J.dif.vision ) {                // ¡te vio! te persigue
 				if ( u.estado !== 'perseguir' ) { u.estado = 'perseguir'; sonar( 'grunido', 0.8, z ); }
 				// gira hacia ti, pero con un límite de velocidad de giro
 				const haciaTi = Math.atan2( cab.x - z.position.x, cab.z - z.position.z );
@@ -359,6 +380,8 @@ export function crearJuego( ctx ) {
 					u.tropiezo = Math.min( clips.tambalear?.duration ?? 2, 2.6 );
 					animar( z, 'tambalear', 0.15 ); sonar( 'grunido', 0.6, z );
 					ctx.vibrar?.( 'left', 0.25, 50 );
+					J.esquives ++; sumar( PUNTOS.esquive );
+					aviso( '💫 ¡Esquive! +50', '#38bdf8', 1400 );
 					return;
 				}
 			} else {                                          // deambula entre las lápidas
@@ -379,20 +402,30 @@ export function crearJuego( ctx ) {
 		} );
 		// latido: más fuerte y rápido cuanto más cerca está un zombie
 		if ( latido.buffer ) {
-			const k = THREE.MathUtils.clamp( 1 - ( masCerca - 1 ) / 10, 0, 1 );
-			latido.setVolume( k * 0.9 );
+			const k = A.latidos ? THREE.MathUtils.clamp( 1 - ( masCerca - 1 ) / 10, 0, 1 ) : 0;
+			latido.setVolume( k * 0.9 * volEf() );
 			if ( latido.source ) latido.source.playbackRate.value = 1 + k * 0.8;
 		}
 		if ( Math.floor( J.tiempo * 4 ) !== Math.floor( ( J.tiempo - dt ) * 4 ) ) actualizarMarcador();
 	};
 
+	// radar (solo PC)
+	const fwd = new THREE.Vector3();
+	ctx.actualizarRadar = ( dt ) => {
+		if ( ! A.radar ) return;
+		camera.getWorldPosition( cab ); camera.getWorldDirection( fwd );
+		ctx.ui?.radar( cab, Math.atan2( -fwd.x, -fwd.z ), zombies, calabazas, dorada, dt );
+	};
+
 	ctx.juego = {
-		get activo() { return J.activo; }, reiniciar, agarrar, iniciarAudio,
+		get activo() { return J.activo; }, get fin() { return J.fin; }, get estado() { return J; },
+		reiniciar, agarrar, iniciarAudio,
+		pausarAudio: () => listener.context.suspend(),
+		reanudarAudio: () => listener.context.resume(),
+		detener: () => { J.activo = false; J.fin = false; zombies.forEach( ( z ) => scene.remove( z ) ); zombies.length = 0; calabazas.forEach( ( c ) => { c.visible = false; } ); dorada.visible = false; latido.setVolume( 0 ); },
 		mostrarPanelVR: ( v ) => { panel.visible = v; }
 	};
 }
-
-function formato( s ) { const m = Math.floor( s / 60 ), r = Math.floor( s % 60 ); return `${m}:${String( r ).padStart( 2, '0' )}`; }
 
 function caraCalabaza() {
 	const S = 256, c = document.createElement( 'canvas' ); c.width = c.height = S;
