@@ -12,6 +12,8 @@ const ZOMBIES_POR_NIVEL = [ 4, 6, 8 ], VEL_POR_NIVEL = [ 1, 1.18, 1.36 ];
 const OLEADA_CADA = 30, OLEADA_MAX = 3;           // aparece un zombie nuevo cada 30 s (máx. 3 por nivel)
 const RADIO_VISION = 9, RADIO_ATAQUE = 0.9;
 const VEL_DEAMBULAR = 0.55, VEL_PERSEGUIR = 1.25;
+const GIRO_ZOMBIE = 1.9;          // rad/s: los zombies giran lento, por eso se les puede esquivar
+const ANGULO_ESQUIVE = 1.1;       // si quedas a más de ~63° de su frente estando cerca → se tropiezan
 
 export function crearJuego( ctx ) {
 	const { scene, camera, player, manager } = ctx;
@@ -88,6 +90,7 @@ export function crearJuego( ctx ) {
 		return clip;
 	}
 
+	console.log( 'juego.js v3 · esquive con tropiezo activo' );
 	fbx.load( 'assets/models/fbx/Dancing.fbx', ( modelo ) => {
 		modelo.traverse( ( c ) => {
 			if ( c.isMesh ) {
@@ -119,7 +122,7 @@ export function crearJuego( ctx ) {
 			cuerpo.castShadow = true; z.add( cuerpo, ojos );
 		}
 		z.userData = { mixer, acciones: {}, actual: null, estado: 'deambular', destino: new THREE.Vector3(), espera: 0, gruño: false,
-			tropiezo: 0, cerca: false, impulso: new THREE.Vector3() };
+			tropiezo: 0, cerca: false, impulso: new THREE.Vector3(), rumbo: Math.random() * Math.PI * 2, calma: 0 };
 		scene.add( z );
 		return z;
 	}
@@ -337,22 +340,32 @@ export function crearJuego( ctx ) {
 				if ( u.tropiezo <= 0 ) { u.estado = 'deambular'; u.cerca = false; }
 			} else if ( dist < RADIO_VISION ) {                // ¡te vio! te persigue
 				if ( u.estado !== 'perseguir' ) { u.estado = 'perseguir'; sonar( 'grunido', 0.8, z ); }
-				dir.set( cab.x - z.position.x, 0, cab.z - z.position.z ).normalize();
+				// gira hacia ti, pero con un límite de velocidad de giro
+				const haciaTi = Math.atan2( cab.x - z.position.x, cab.z - z.position.z );
+				const dif = Math.atan2( Math.sin( haciaTi - u.rumbo ), Math.cos( haciaTi - u.rumbo ) );
+				u.rumbo += THREE.MathUtils.clamp( dif, -GIRO_ZOMBIE * dt, GIRO_ZOMBIE * dt );
+				dir.set( Math.sin( u.rumbo ), 0, Math.cos( u.rumbo ) );
 				vel = VEL_PERSEGUIR * dificultad;
 				animar( z, 'caminar', 0.3, 1.5 * dificultad );   // camina más rápido al perseguir
-				if ( dist < RADIO_ATAQUE ) { herir( z ); u.cerca = false; }
-				else if ( dist < 2 ) u.cerca = true;             // casi te alcanza…
-				else if ( u.cerca && dist > 3 ) {                // …pero lo esquivaste
-					u.cerca = false; u.estado = 'tropiezo';
+				u.calma = Math.max( 0, u.calma - dt );
+				if ( dist < RADIO_ATAQUE && Math.abs( dif ) < 1.2 ) { herir( z ); u.cerca = false; }
+				else if ( dist < 2.5 ) u.cerca = true;
+				// ESQUIVE: pasaste a su lado (no alcanza a voltear) o te alejaste después de que casi te atrapa
+				const meRebaso = dist < 2.5 && Math.abs( dif ) > ANGULO_ESQUIVE;
+				const meEscape = u.cerca && dist > 3;
+				if ( ( meRebaso || meEscape ) && u.calma <= 0 && J.invulnerable <= 0 ) {
+					u.cerca = false; u.estado = 'tropiezo'; u.calma = 4;
 					u.impulso.copy( dir );
 					u.tropiezo = Math.min( clips.tambalear?.duration ?? 2, 2.6 );
-					animar( z, 'tambalear', 0.2 ); sonar( 'grunido', 0.6, z );
+					animar( z, 'tambalear', 0.15 ); sonar( 'grunido', 0.6, z );
+					ctx.vibrar?.( 'left', 0.25, 50 );
 					return;
 				}
 			} else {                                          // deambula entre las lápidas
 				u.estado = 'deambular'; u.cerca = false;
 				if ( z.position.distanceTo( u.destino ) < 1 ) u.destino.copy( lugarLibre( 3, ctx.LIMITE - 2 ) );
 				dir.copy( u.destino ).sub( z.position ).setY( 0 ).normalize();
+				u.rumbo = Math.atan2( dir.x, dir.z );
 				vel = VEL_DEAMBULAR; animar( z, 'caminar', 0.35, 1 );
 			}
 			z.position.addScaledVector( dir, vel * dt );
